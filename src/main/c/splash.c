@@ -47,19 +47,28 @@ void disable_splash(void)
 
 struct string *get_splashscreen_lib_path(const char *jre_home)
 {
-#if defined(__APPLE__)
-	struct string *search_root = string_initf("/System/Library/Java/JavaVirtualMachines");
-	struct string *result = string_init(32);
-	if (!find_file(search_root, 4, "libsplashscreen.jnilib", result)) {
-		string_release(result);
-		result = NULL;
-	}
-	string_release(search_root);
-	return result;
-#endif
-	if (!jre_home)
+	if (!jre_home) {
+		if (debug) error("No JRE home available for splash screen library lookup");
 		return NULL;
-#if defined(WIN32)
+	}
+#if defined(__APPLE__)
+	struct string *oldSplash = string_copy(jre_home);
+	string_append(oldSplash, "/lib/libsplashscreen.jnilib");
+	if (file_exists(oldSplash->buffer)) {
+		if (debug) error("[APPLE] Found jnilib splash screen: '%s'", oldSplash->buffer);
+		return oldSplash;
+	}
+	string_release(oldSplash);
+	struct string *newSplash = string_copy(jre_home);
+	string_append(newSplash, "/lib/libsplashscreen.dylib");
+	if (file_exists(newSplash->buffer)) {
+		if (debug) error("[APPLE] Found dylib splash screen: '%s'", newSplash->buffer);
+		return newSplash;
+	}
+	string_release(newSplash);
+	if (debug) error("[APPLE] No splash screen found for JRE: '%s'", jre_home);
+	return NULL;
+#elif defined(WIN32)
 	return string_initf("%s/bin/splashscreen.dll", jre_home);
 #elif defined(__linux__)
 	return string_initf("%s/lib/%s/libsplashscreen.so", jre_home, sizeof(void *) == 8 ? "amd64" : "i386");
