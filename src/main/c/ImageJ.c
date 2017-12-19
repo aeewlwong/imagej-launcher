@@ -283,6 +283,7 @@ static int create_java_vm(JavaVM **vm, void **env, JavaVMInitArgs *args)
 
 	if (debug)
 		error("Opening Java library %s", buffer->buffer);
+	error(dlerror());
 
 	handle = dlopen(buffer->buffer, RTLD_LAZY);
 	if (!handle) {
@@ -1135,43 +1136,6 @@ static const char *skip_whitespace(const char *string)
 	while (iswhitespace(*string))
 		string++;
 	return string;
-}
-
-static const char *parse_number(const char *string, unsigned int *result, int shift)
-{
-	char *endp;
-	long value = strtol(string, &endp, 10);
-
-	if (string == endp)
-		return NULL;
-
-	*result |= (int)(value << shift);
-	return endp;
-}
-
-static unsigned int guess_java_version(void)
-{
-	const char *java_home = get_jre_home();
-
-	while (java_home && *java_home) {
-		if (!prefixcmp(java_home, "jdk") || !prefixcmp(java_home, "jre")) {
-			unsigned int result = 0;
-			const char *p = java_home + 3;
-
-			p = parse_number(p, &result, 24);
-			if (p && *p == '.')
-				p = parse_number(p + 1, &result, 16);
-			if (p && *p == '.')
-				p = parse_number(p + 1, &result, 8);
-			if (p) {
-				if (*p == '_')
-					p = parse_number(p + 1, &result, 0);
-				return result;
-			}
-		}
-		java_home += strcspn(java_home, "\\/") + 1;
-	}
-	return 0;
 }
 
 static void jvm_workarounds(struct options *options)
@@ -2344,6 +2308,9 @@ static void adjust_java_home_if_necessary(void)
 
 	set_default_library_path();
 	set_library_path(get_default_library_path());
+
+	char* debugPath = get_library_path();
+	error(debugPath);
 
 	buffer = string_copy(ij_path("java"));
 	ij_dir_len = buffer->length - 4;

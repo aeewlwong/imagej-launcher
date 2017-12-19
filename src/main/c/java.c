@@ -53,6 +53,44 @@ const char *get_java_command(void)
 	return "java";
 }
 
+static const char *parse_number(const char *string, unsigned int *result, int shift)
+{
+	char *endp;
+	long value = strtol(string, &endp, 10);
+
+	if (string == endp)
+		return NULL;
+
+	*result |= (int)(value << shift);
+	return endp;
+}
+
+
+unsigned int guess_java_version(void)
+{
+	const char *java_home = get_jre_home();
+
+	while (java_home && *java_home) {
+		if (!prefixcmp(java_home, "jdk") || !prefixcmp(java_home, "jre")) {
+			unsigned int result = 0;
+			const char *p = java_home + 3;
+
+			p = parse_number(p, &result, 24);
+			if (p && *p == '.')
+				p = parse_number(p + 1, &result, 16);
+			if (p && *p == '.')
+				p = parse_number(p + 1, &result, 8);
+			if (p) {
+				if (*p == '_')
+					p = parse_number(p + 1, &result, 0);
+				return result;
+			}
+		}
+		java_home += strcspn(java_home, "\\/") + 1;
+	}
+	return 0;
+}
+
 void set_java_home(const char *absolute_path)
 {
 	absolute_java_home = absolute_path;
@@ -294,7 +332,7 @@ void set_default_library_path(void)
 #elif defined(WIN32)
 		sizeof(void *) < 8 ? "bin/client/jvm.dll" : "bin/server/jvm.dll";
 #else
-		sizeof(void *) < 8 ? "lib/i386/client/libjvm.so" : "lib/amd64/server/libjvm.so";
+		sizeof(void *) < 8 ? "lib/i386/client/libjvm.so" : (guess_java_version() >= 0x09000000 ? "lib/server/libjvm.so" : "lib/amd64/server/libjvm.so");
 #endif
 }
 
